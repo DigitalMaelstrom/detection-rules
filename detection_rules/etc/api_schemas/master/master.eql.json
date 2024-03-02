@@ -47,10 +47,20 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "missing_fields_strategy": {
+          "description": "AlertSuppressionMissing",
+          "enum": [
+            "suppress",
+            "doNotSuppress"
+          ],
+          "enumNames": [],
+          "type": "string"
         }
       },
       "required": [
-        "group_by"
+        "group_by",
+        "missing_fields_strategy"
       ],
       "type": "object"
     },
@@ -61,6 +71,9 @@
       "type": "array"
     },
     "building_block_type": {
+      "enum": [
+        "default"
+      ],
       "type": "string"
     },
     "description": {
@@ -68,6 +81,10 @@
     },
     "enabled": {
       "type": "boolean"
+    },
+    "event_category_override": {
+      "min_compat": "8.0",
+      "type": "string"
     },
     "exceptions_list": {
       "items": {
@@ -258,6 +275,7 @@
       "type": "string"
     },
     "setup": {
+      "description": "MarkdownField",
       "min_compat": "8.3",
       "type": "string"
     },
@@ -398,6 +416,10 @@
     "throttle": {
       "type": "string"
     },
+    "tiebreaker_field": {
+      "min_compat": "8.0",
+      "type": "string"
+    },
     "timeline_id": {
       "description": "TimelineTemplateId",
       "enum": [
@@ -430,6 +452,10 @@
         "Alerts Involving a Single Host Timeline"
       ],
       "enumNames": [],
+      "type": "string"
+    },
+    "timestamp_field": {
+      "min_compat": "8.0",
       "type": "string"
     },
     "timestamp_override": {

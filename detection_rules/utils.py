@@ -16,7 +16,6 @@ import json
 import os
 import shutil
 import subprocess
-import time
 import zipfile
 from dataclasses import is_dataclass, astuple
 from datetime import datetime, date
@@ -191,9 +190,36 @@ def unzip_to_dict(zipped: zipfile.ZipFile, load_json=True) -> Dict[str, Union[di
 def event_sort(events, timestamp='@timestamp', date_format='%Y-%m-%dT%H:%M:%S.%f%z', asc=True):
     """Sort events from elasticsearch by timestamp."""
 
-    def _event_sort(event):
-        t = event[timestamp]
-        return (time.mktime(time.strptime(t, date_format)) + int(t.split('.')[-1][:-1]) / 1000) * 1000
+    def round_microseconds(t: str) -> str:
+        """Rounds the microseconds part of a timestamp string to 6 decimal places."""
+
+        if not t:
+            # Return early if the timestamp string is empty
+            return t
+
+        parts = t.split('.')
+        if len(parts) == 2:
+            # Remove trailing "Z" from microseconds part
+            micro_seconds = parts[1].rstrip("Z")
+
+            if len(micro_seconds) > 6:
+                # If the microseconds part has more than 6 digits
+                # Convert the microseconds part to a float and round to 6 decimal places
+                rounded_micro_seconds = round(float(f"0.{micro_seconds}"), 6)
+
+                # Format the rounded value to always have 6 decimal places
+                # Reconstruct the timestamp string with the rounded microseconds part
+                formatted_micro_seconds = f'{rounded_micro_seconds:0.6f}'.split(".")[-1]
+                t = f"{parts[0]}.{formatted_micro_seconds}Z"
+
+        return t
+
+    def _event_sort(event: dict) -> datetime:
+        """Calculates the sort key for an event as a datetime object."""
+        t = round_microseconds(event[timestamp])
+
+        # Return the timestamp as a datetime object for comparison
+        return datetime.strptime(t, date_format)
 
     return sorted(events, key=_event_sort, reverse=not asc)
 
@@ -205,6 +231,13 @@ def combine_sources(*sources):  # type: (list[list]) -> list
         combined.extend(source.copy())
 
     return event_sort(combined)
+
+
+def convert_time_span(span: str) -> int:
+    """Convert time span in Date Math to value in milliseconds."""
+    amount = int("".join(char for char in span if char.isdigit()))
+    unit = eql.ast.TimeUnit("".join(char for char in span if char.isalpha()))
+    return eql.ast.TimeRange(amount, unit).as_milliseconds()
 
 
 def evaluate(rule, events):
@@ -292,8 +325,10 @@ def load_rule_contents(rule_file: Path, single_only=False) -> list:
         return contents or [{}]
     elif extension == '.toml':
         rule = pytoml.loads(raw_text)
+    elif extension.lower() in ('yaml', 'yml'):
+        rule = load_dump(str(rule_file))
     else:
-        rule = load_dump(rule_file)
+        return []
 
     if isinstance(rule, dict):
         return [rule]
